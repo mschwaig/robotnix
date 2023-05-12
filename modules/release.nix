@@ -44,6 +44,13 @@ let
     keysDir = config.signing.buildTimeKeyStorePath;
   });
 
+  verifiedTargetFilesScript = { targetFiles, out }: ''
+  ( OUT=$(realpath ${out})
+    cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
+    check_target_files_signatures ${targetFiles}
+    cp -r ${targetFiles} $OUT
+  )
+  '';
   signedTargetFilesScript = { targetFiles, out }: ''
   ( OUT=$(realpath ${out})
     cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
@@ -130,7 +137,8 @@ in
     # These can be used to build these products inside nix. Requires putting the secret keys under /keys in the sandbox
     unsignedTargetFiles = config.build.android + "/${config.productName}-target_files-${config.buildNumber}.zip";
     signedTargetFiles = runWrappedCommand "signed_target_files" signedTargetFilesScript { targetFiles=unsignedTargetFiles;};
-    targetFiles = if config.signing.enable then signedTargetFiles else unsignedTargetFiles;
+    verifiedTargetFiles = runWrappedCommand "verifieded_target_files" verifiedTargetFilesScript { targetFiles=signedTargetFiles;};
+    targetFiles = if config.signing.enable then verifiedTargetFiles else unsignedTargetFiles;
     ota = runWrappedCommand "ota_update" otaScript { inherit targetFiles; };
     incrementalOta = runWrappedCommand "incremental-${config.prevBuildNumber}" otaScript { inherit targetFiles; inherit (config) prevTargetFiles; };
     img = runWrappedCommand "img" imgScript { inherit targetFiles; };
