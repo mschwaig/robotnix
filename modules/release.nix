@@ -49,8 +49,19 @@ let
     cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
     check_target_files_signatures ${targetFiles}
     cp -r ${targetFiles} $OUT
-  )
+    )
+    echo ${toString config.signing.signTargetFilesArgs}
+    mkdir -p build/make/target/product
+    ln -s ${config.source.dirs."build/make".src}/target/product/security build/make/target/product/security
+    sign_target_files_apks --override_apk_keys build/make/target/product/security/testkey ${targetFiles} from_unsigned.zip
+    sign_target_files_apks ${targetFiles} from_signed.zip
+    diff from_unsigned.zip from_signed.zip
   '';
+    # TODO:
+    # sign unsigned with test keys
+    # re-sign signed with test keys
+    # diff the two results
+    # there should not be any differences as long as the signatures are all deterministic
   signedTargetFilesScript = { targetFiles, out }: ''
   ( OUT=$(realpath ${out})
     cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
