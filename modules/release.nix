@@ -8,7 +8,7 @@ let
 
   otaTools = config.build.otaTools;
 
-  wrapScript = { commands, keysDir }: let
+  wrapScript = { commands, keysDir ? null }: let
     jre = if (config.androidVersion >= 11) then pkgs.jdk11_headless else pkgs.jre8_headless;
     deps = with pkgs;
       [ otaTools openssl jre zip unzip pkgs.getopt which toybox vboot_reference utillinux
@@ -18,6 +18,7 @@ let
     export PATH=${lib.makeBinPath deps}:$PATH
     export EXT2FS_NO_MTAB_OK=yes
 
+    ${if keysDir == null then "" else ''
     # build-tools releasetools/common.py hilariously tries to modify the
     # permissions of the source file in ZipWrite. Since signing uses this
     # function with a key, we need to make a temporary copy of our keys so the
@@ -34,7 +35,7 @@ let
       cp -r "$KEYSDIR"/* "$NEW_KEYSDIR"
       chmod u+w -R "$NEW_KEYSDIR"
       KEYSDIR=$NEW_KEYSDIR
-    fi
+    fi''}
 
     ${commands}
   '';
@@ -42,6 +43,11 @@ let
   runWrappedCommand = name: script: args: pkgs.runCommand "${config.device}-${name}-${config.buildNumber}.zip" {} (wrapScript {
     commands = script (args // {out="$out";});
     keysDir = config.signing.buildTimeKeyStorePath;
+  });
+
+  runWrappedCommandKeyless = name: script: args: pkgs.runCommand "${config.device}-${name}-${config.buildNumber}.zip" {} (wrapScript {
+    commands = script (args // {out="$out";});
+    keysDir = null;
   });
 
   verifiedTargetFilesScript = { targetFiles, out }: ''
@@ -152,7 +158,7 @@ in
     targetFiles = if config.signing.enable then verifiedTargetFiles else unsignedTargetFiles;
     ota = runWrappedCommand "ota_update" otaScript { inherit targetFiles; };
     incrementalOta = runWrappedCommand "incremental-${config.prevBuildNumber}" otaScript { inherit targetFiles; inherit (config) prevTargetFiles; };
-    img = runWrappedCommand "img" imgScript { inherit targetFiles; };
+    img = runWrappedCommandKeyless "img" imgScript { inherit targetFiles; };
     factoryImg = runWrappedCommand "factory" factoryImgScript { inherit targetFiles img; };
     unpackedImg = pkgs.robotnix.unpackImg config.build.img;
 
