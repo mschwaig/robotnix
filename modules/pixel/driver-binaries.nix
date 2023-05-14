@@ -42,7 +42,10 @@ in
 
       # Merge qcom and google drivers
       source.dirs = {
-        "build/make".patches = mkIf (config.androidVersion >= 12) [ ../12/build_make/0003-Add-option-to-include-prebuilt-images-when-signing-t.patch ];
+        "build/make".patches = mkIf (config.androidVersion >= 12) [
+          ../12/build_make/0003-Add-option-to-include-prebuilt-images-when-signing-t.patch
+          ../12/build_make/add-flags-to-override-all-apex-apk-keys.patch
+        ];
 
         "vendor/google_devices/${config.device}".src = pkgs.runCommand "${config.device}-vendor" {} (''
           mkdir extracted
