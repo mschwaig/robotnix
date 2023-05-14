@@ -1,0 +1,86 @@
+From e50bb51fa9dc42dea22c4bc6f54c5fe397f11c1d Mon Sep 17 00:00:00 2001
+From: Kelvin Zhang <zhangkelvin@google.com>
+Date: Mon, 01 Aug 2022 15:58:51 -0700
+Subject: [PATCH] Add flags to override all apex/apk keys
+
+Currently, if we want to override all apex/apk key, we must specify all apk/apex names exhaustively. This causes CLI arguments to be very long and sometimes exceeds OS's limit.
+
+Test: run signing test locally on build 8862875 on git_master
+Bug: 239991438
+Change-Id: Idbd3b7eef9b2a27236f4ca7a27449fcdf0d2dd3f
+---
+
+diff --git a/tools/releasetools/sign_target_files_apks.py b/tools/releasetools/sign_target_files_apks.py
+index ef65800..e0917a5 100755
+--- a/tools/releasetools/sign_target_files_apks.py
++++ b/tools/releasetools/sign_target_files_apks.py
+@@ -141,6 +141,12 @@ Usage:  sign_target_files_apks [flags] input_target_files output_target_files
+       Specify a path to a prebuilt image file, to be added to the
+       signed_target-files.zip. This option may be repeated to add multiple
+       images.
++
++  --override_apk_keys <path>
++      Replace all APK keys with this private key
++
++  --override_apex_keys <path>
++      Replace all APEX keys with this private key
+ """
+ 
+ from __future__ import print_function
+@@ -195,7 +201,8 @@ OPTIONS.gki_signing_key = None
+ OPTIONS.gki_signing_algorithm = None
+ OPTIONS.gki_signing_extra_args = None
+ OPTIONS.android_jar_path = None
+-
++OPTIONS.override_apk_keys = None
++OPTIONS.override_apex_keys = None
+ 
+ AVB_FOOTER_ARGS_BY_PARTITION = {
+     'boot': 'avb_boot_add_hash_footer_args',
+@@ -236,6 +243,10 @@ def GetApexFilename(filename):
+ 
+ 
+ def GetApkCerts(certmap):
++  if OPTIONS.override_apk_keys is not None:
++    for apk in certmap.keys():
++      certmap[apk] = OPTIONS.override_apk_keys
++
+   # apply the key remapping to the contents of the file
+   for apk, cert in certmap.items():
+     certmap[apk] = OPTIONS.key_map.get(cert, cert)
+@@ -266,6 +277,15 @@ def GetApexKeys(keys_info, key_map):
+   Raises:
+     AssertionError: On invalid container / payload key overrides.
+   """
++  if OPTIONS.override_apex_keys is not None:
++    for apex in keys_info.keys():
++      keys_info[apex] = (OPTIONS.override_apex_keys, keys_info[apex][1], keys_info[apex][2])
++
++  if OPTIONS.override_apk_keys is not None:
++    key = key_map.get(OPTIONS.override_apk_keys, OPTIONS.override_apk_keys)
++    for apex in keys_info.keys():
++      keys_info[apex] = (keys_info[apex][0], key, keys_info[apex][2])
++
+   # Apply all the --extra_apex_payload_key options to override the payload
+   # signing keys in the given keys_info.
+   for apex, key in OPTIONS.extra_apex_payload_keys.items():
+@@ -1297,6 +1317,10 @@ def main(argv):
+       OPTIONS.gki_signing_algorithm = a
+     elif o == "--gki_signing_extra_args":
+       OPTIONS.gki_signing_extra_args = a
++    elif o == "--override_apk_keys":
++      OPTIONS.override_apk_keys = a
++    elif o == "--override_apex_keys":
++      OPTIONS.override_apex_keys = a
+     else:
+       return False
+     return True
+@@ -1348,6 +1372,8 @@ def main(argv):
+           "gki_signing_algorithm=",
+           "gki_signing_extra_args=",
+           "prebuilt_image=",
++          "override_apk_keys=",
++          "override_apex_keys=",
+       ],
+       extra_option_handler=option_handler)
+
