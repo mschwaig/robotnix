@@ -45,6 +45,13 @@ let
     keysDir = config.signing.buildTimeKeyStorePath;
   });
 
+  runWrappedCommandVerify = name: script: args: verifies: pkgs.runCommand "${config.device}-${name}-${config.buildNumber}.zip" {
+    VERIFIES = verifies;
+  } (wrapScript {
+    commands = script (args // {out="$out";});
+    keysDir = config.signing.buildTimeKeyStorePath;
+  });
+
   runWrappedCommandKeyless = name: script: args: pkgs.runCommand "${config.device}-${name}-${config.buildNumber}.zip" {} (wrapScript {
     commands = script (args // {out="$out";});
     keysDir = null;
@@ -56,15 +63,7 @@ let
     check_target_files_signatures ${signedTargetFiles}
     cp -r ${signedTargetFiles} $OUT
     echo ${toString config.signing.signTargetFilesArgs}
-    mkdir -p build/make/target/product
-    #ln -s ${config.source.dirs."build/make".src}/target/product/security build/make/target/product/security
-    #sign_target_files_apks -v -e Robotnixchromium.apk,RobotnixchromiumTrichromeLibrary.apk,Robotnixchromiumwebview.apk=build/make/target/product/security/testkey --override_apex_keys ${config.source.dirs."build/make".src}/target/product/security/testkey ${unsignedTargetFiles} from_unsigned.zip
-    sign_target_files_apks -o ${toString config.signing.signTargetFilesArgs} --override_apex_keys ${config.source.dirs."build/make".src}/target/product/security/testkey --override_apk_keys ${config.source.dirs."build/make".src}/target/product/security/testkey ${unsignedTargetFiles} /build/from_unsigned.zip
-    #sign_target_files_apks -e Robotnixchromium.apk,RobotnixchromiumTrichromeLibrary.apk,Robotnixchromiumwebview.apk=build/make/target/product/security/testkey --override_apex_keys build/make/target/product/security/testkey ${signedTargetFiles} from_signed.zip
-    )
-    # diff the two results
-    # there should not be any differences as long as the signatures are all deterministic
-    diff from_unsigned.zip from_signed.zip
+  )
   '';
   signedTargetFilesScript = { targetFiles, out }: ''
   ( OUT=$(realpath ${out})
@@ -152,7 +151,8 @@ in
     # These can be used to build these products inside nix. Requires putting the secret keys under /keys in the sandbox
     unsignedTargetFiles = config.build.android + "/${config.productName}-target_files-${config.buildNumber}.zip";
     signedTargetFiles = runWrappedCommand "signed_target_files" signedTargetFilesScript { targetFiles=unsignedTargetFiles;};
-    verifiedTargetFiles = runWrappedCommand "verifieded_target_files" verifiedTargetFilesScript { inherit signedTargetFiles unsignedTargetFiles; };
+    verifiedTargetFiles = runWrappedCommandVerify "verifieded_target_files" verifiedTargetFilesScript {
+      inherit signedTargetFiles unsignedTargetFiles; } signedTargetFiles;
     targetFiles = if config.signing.enable then verifiedTargetFiles else unsignedTargetFiles;
     ota = runWrappedCommand "ota_update" otaScript { inherit targetFiles; };
     incrementalOta = runWrappedCommand "incremental-${config.prevBuildNumber}" otaScript { inherit targetFiles; inherit (config) prevTargetFiles; };
