@@ -11,13 +11,13 @@ Change-Id: Idbd3b7eef9b2a27236f4ca7a27449fcdf0d2dd3f
 ---
 
 diff --git a/tools/releasetools/sign_target_files_apks.py b/tools/releasetools/sign_target_files_apks.py
-index 82993b9..ba0619d 100755
+index 4f2b1bf..ae72430 100755
 --- a/tools/releasetools/sign_target_files_apks.py
 +++ b/tools/releasetools/sign_target_files_apks.py
-@@ -136,6 +136,12 @@ Usage:  sign_target_files_apks [flags] input_target_files output_target_files
- 
-   --android_jar_path <path>
-       Path to the android.jar to repack the apex file.
+@@ -141,6 +141,12 @@
+       Allow the existence of the file 'userdebug_plat_sepolicy.cil' under
+       (/system/system_ext|/system_ext)/etc/selinux.
+       If not set, error out when the file exists.
 +
 +  --override_apk_keys <path>
 +      Replace all APK keys with this private key
@@ -27,17 +27,16 @@ index 82993b9..ba0619d 100755
  """
  
  from __future__ import print_function
-@@ -189,7 +195,8 @@ OPTIONS.gki_signing_key = None
- OPTIONS.gki_signing_algorithm = None
- OPTIONS.gki_signing_extra_args = None
- OPTIONS.android_jar_path = None
--
+@@ -197,6 +203,8 @@
+ OPTIONS.vendor_partitions = set()
+ OPTIONS.vendor_otatools = None
+ OPTIONS.allow_gsi_debug_sepolicy = False
 +OPTIONS.override_apk_keys = None
 +OPTIONS.override_apex_keys = None
  
+ 
  AVB_FOOTER_ARGS_BY_PARTITION = {
-     'boot': 'avb_boot_add_hash_footer_args',
-@@ -230,6 +237,10 @@ def GetApexFilename(filename):
+@@ -245,6 +253,10 @@
  
  
  def GetApkCerts(certmap):
@@ -48,7 +47,7 @@ index 82993b9..ba0619d 100755
    # apply the key remapping to the contents of the file
    for apk, cert in certmap.items():
      certmap[apk] = OPTIONS.key_map.get(cert, cert)
-@@ -260,6 +271,15 @@ def GetApexKeys(keys_info, key_map):
+@@ -275,6 +287,15 @@
    Raises:
      AssertionError: On invalid container / payload key overrides.
    """
@@ -64,10 +63,10 @@ index 82993b9..ba0619d 100755
    # Apply all the --extra_apex_payload_key options to override the payload
    # signing keys in the given keys_info.
    for apex, key in OPTIONS.extra_apex_payload_keys.items():
-@@ -1289,6 +1309,10 @@ def main(argv):
-       OPTIONS.gki_signing_algorithm = a
-     elif o == "--gki_signing_extra_args":
-       OPTIONS.gki_signing_extra_args = a
+@@ -1485,6 +1506,10 @@
+       OPTIONS.vendor_partitions = set(a.split(","))
+     elif o == "--allow_gsi_debug_sepolicy":
+       OPTIONS.allow_gsi_debug_sepolicy = True
 +    elif o == "--override_apk_keys":
 +      OPTIONS.override_apk_keys = a
 +    elif o == "--override_apex_keys":
@@ -75,12 +74,12 @@ index 82993b9..ba0619d 100755
      else:
        return False
      return True
-@@ -1339,6 +1363,8 @@ def main(argv):
-           "gki_signing_key=",
-           "gki_signing_algorithm=",
-           "gki_signing_extra_args=",
+@@ -1538,6 +1563,8 @@
+           "vendor_partitions=",
+           "vendor_otatools=",
+           "allow_gsi_debug_sepolicy",
 +          "override_apk_keys=",
 +          "override_apex_keys=",
        ],
        extra_option_handler=option_handler)
-
+ 
