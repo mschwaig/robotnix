@@ -50,24 +50,22 @@ let
     keysDir = null;
   });
 
-  verifiedTargetFilesScript = { targetFiles, out }: ''
+  verifiedTargetFilesScript = { signedTargetFiles, unsignedTargetFiles, out }: ''
   ( OUT=$(realpath ${out})
     cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
-    check_target_files_signatures ${targetFiles}
-    cp -r ${targetFiles} $OUT
-    )
+    check_target_files_signatures ${signedTargetFiles}
+    cp -r ${signedTargetFiles} $OUT
     echo ${toString config.signing.signTargetFilesArgs}
     mkdir -p build/make/target/product
-    ln -s ${config.source.dirs."build/make".src}/target/product/security build/make/target/product/security
-    sign_target_files_apks --override_apk_keys build/make/target/product/security/testkey ${targetFiles} from_unsigned.zip
-    sign_target_files_apks ${targetFiles} from_signed.zip
-    diff from_unsigned.zip from_signed.zip
-  '';
-    # TODO:
-    # sign unsigned with test keys
-    # re-sign signed with test keys
+    #ln -s ${config.source.dirs."build/make".src}/target/product/security build/make/target/product/security
+    #sign_target_files_apks -v -e Robotnixchromium.apk,RobotnixchromiumTrichromeLibrary.apk,Robotnixchromiumwebview.apk=build/make/target/product/security/testkey --override_apex_keys ${config.source.dirs."build/make".src}/target/product/security/testkey ${unsignedTargetFiles} from_unsigned.zip
+    sign_target_files_apks -o ${toString config.signing.signTargetFilesArgs} --override_apex_keys ${config.source.dirs."build/make".src}/target/product/security/testkey --override_apk_keys ${config.source.dirs."build/make".src}/target/product/security/testkey ${unsignedTargetFiles} /build/from_unsigned.zip
+    #sign_target_files_apks -e Robotnixchromium.apk,RobotnixchromiumTrichromeLibrary.apk,Robotnixchromiumwebview.apk=build/make/target/product/security/testkey --override_apex_keys build/make/target/product/security/testkey ${signedTargetFiles} from_signed.zip
+    )
     # diff the two results
     # there should not be any differences as long as the signatures are all deterministic
+    diff from_unsigned.zip from_signed.zip
+  '';
   signedTargetFilesScript = { targetFiles, out }: ''
   ( OUT=$(realpath ${out})
     cd ${otaTools}; # Enter otaTools dir so relative paths are correct for finding original keys
@@ -154,7 +152,7 @@ in
     # These can be used to build these products inside nix. Requires putting the secret keys under /keys in the sandbox
     unsignedTargetFiles = config.build.android + "/${config.productName}-target_files-${config.buildNumber}.zip";
     signedTargetFiles = runWrappedCommand "signed_target_files" signedTargetFilesScript { targetFiles=unsignedTargetFiles;};
-    verifiedTargetFiles = runWrappedCommand "verifieded_target_files" verifiedTargetFilesScript { targetFiles=signedTargetFiles;};
+    verifiedTargetFiles = runWrappedCommand "verifieded_target_files" verifiedTargetFilesScript { inherit signedTargetFiles unsignedTargetFiles; };
     targetFiles = if config.signing.enable then verifiedTargetFiles else unsignedTargetFiles;
     ota = runWrappedCommand "ota_update" otaScript { inherit targetFiles; };
     incrementalOta = runWrappedCommand "incremental-${config.prevBuildNumber}" otaScript { inherit targetFiles; inherit (config) prevTargetFiles; };
