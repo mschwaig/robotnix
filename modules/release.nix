@@ -49,7 +49,7 @@ let
     VERIFIES = verifies;
   } (wrapScript {
     commands = script (args // {out="$out";});
-    keysDir = config.signing.buildTimeKeyStorePath;
+    keysDir = null; # config.signing.buildTimeKeyStorePath;
   });
 
   runWrappedCommandKeyless = name: script: args: pkgs.runCommand "${config.device}-${name}-${config.buildNumber}.zip" {} (wrapScript {
@@ -151,8 +151,8 @@ in
     # These can be used to build these products inside nix. Requires putting the secret keys under /keys in the sandbox
     unsignedTargetFiles = config.build.android + "/${config.productName}-target_files-${config.buildNumber}.zip";
     signedTargetFiles = runWrappedCommand "signed_target_files" signedTargetFilesScript { targetFiles=unsignedTargetFiles;};
-    verifiedTargetFiles = runWrappedCommandKeyless "verifieded_target_files" verifiedTargetFilesScript {
-      inherit signedTargetFiles unsignedTargetFiles; };
+    verifiedTargetFiles = runWrappedCommandVerify "verifieded_target_files" verifiedTargetFilesScript {
+      inherit signedTargetFiles unsignedTargetFiles; } signedTargetFiles;
     targetFiles = if config.signing.enable then verifiedTargetFiles else unsignedTargetFiles;
     ota = runWrappedCommand "ota_update" otaScript { inherit targetFiles; };
     incrementalOta = runWrappedCommand "incremental-${config.prevBuildNumber}" otaScript { inherit targetFiles; inherit (config) prevTargetFiles; };
